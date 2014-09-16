@@ -1,0 +1,4 @@
+name = "DRA General"
+description = "Provide general functionality for DRA."
+core = 7.x
+package = Drupal Romania Association

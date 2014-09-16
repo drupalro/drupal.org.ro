@@ -1,0 +1,5 @@
+name = "DRA Membership"
+description = "Provide membership functionality for DRA."
+core = 7.x
+package = Drupal Romania Association
+dependencies[] = dra_general
