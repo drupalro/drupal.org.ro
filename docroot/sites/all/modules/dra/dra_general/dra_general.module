@@ -1,0 +1,21 @@
+<?php
+
+/**
+ * @file
+ *   General functionality for DRA modules file.
+ */
+
+/**
+ * Member role.
+ */
+define('DRA_ROLE_MEMBER', 4);
+
+/**
+ * Active member role.
+ */
+define('DRA_ROLE_ACTIVE', 5);
+
+/**
+ * Organization member role.
+ */
+define('DRA_ROLE_ORGANIZATION', 6);

@@ -1,0 +1,54 @@
+<?php
+
+/**
+ * @file
+ *   Drupal Romania Association membership functionality module main file.
+ */
+ 
+/**
+ * Implements hook_block_info().
+ */
+function dra_membership_block_info() {
+  return array(
+    'membership' => array(
+      'info' => t('Membership'),
+      'cache' => DRUPAL_CACHE_PER_USER,
+    ),
+  );
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function dra_membership_block_view($block_id) {
+  global $user;
+  if ($block_id == 'membership') {
+    if (user_is_anonymous()) {
+      return;
+    }
+    dpm($user);
+    $content = '';
+    $subject = '';
+    if (!isset($user->roles[DRA_ROLE_MEMBER])) {
+      $read_more = array(
+        l(t('About Drupal Romania Association'), 'node/15'),
+        l(t('Why joining the Association?'), 'node/21'),
+      );
+      $subject = t('Join the Association!');
+      $content = '<p>' . t('Join us and become member of Drupal Romania Association. Apply for your membership <a href="!buy_link">here</a>.') . '</p>';
+      $content .= '<p>' . t('Find out more') . ':</p>';
+      $content .= theme('item_list', array('items' => $read_more));
+    }
+    else {
+      if (isset($user->roles[DRA_ROLE_ACTIVE])) {
+        $subject = t('Your membership');
+        $content = '<p>' . t('Thank you for joining the Association!') . '</p>';
+        $content .= '<p>' . t('You are member since @date. Your membership will expire in @interval', array('@date' => '', '@interval' => '')) . '</p>';
+      }
+      else {
+        
+      }
+    }
+    return array('subject' => $subject, 'content' => $content);
+  }
+}

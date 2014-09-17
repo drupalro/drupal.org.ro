@@ -1,0 +1,41 @@
+{
+    "db" : {
+        "host": "db",
+        "username" : "root",
+        "password" : "root",
+        "port": 3306,
+        "database" : "osha",
+        "root_username": "root",
+        "root_password": "root"
+    },
+    "admin" : {
+        "username": "admin",
+        "password": "admin",
+        "email": "account@example.com"
+    },
+    "uri": "http://osha.localhost",
+    "solr_server": {
+        "name": "Apache Solr server",
+        "enabled": 1,
+        "description": "",
+        "scheme": "http",
+        "host": "127.0.0.1",
+        "port": 8080,
+        "path": "/solr/osha",
+        "http_user": "",
+        "http_password": "",
+        "excerpt": 1,
+        "retrieve_data": 1,
+        "highlight_data": 1,
+        "skip_schema_check": null,
+        "solr_version": "",
+        "http_method": "AUTO",
+        "apachesolr_read_only": null,
+        "apachesolr_direct_commit": 1,
+        "apachesolr_soft_commit": 1
+    },
+    "variables": {
+        "site_name": "My Drupal Site",
+        "site_mail": "account@example.com"
+    }
+}
