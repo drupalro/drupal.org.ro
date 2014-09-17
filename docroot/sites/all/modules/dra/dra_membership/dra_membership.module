@@ -24,9 +24,8 @@ function dra_membership_block_view($block_id) {
   global $user;
   if ($block_id == 'membership') {
     if (user_is_anonymous()) {
-      return;
+      return FALSE;
     }
-    dpm($user);
     $content = '';
     $subject = '';
     if (!isset($user->roles[DRA_ROLE_MEMBER])) {
