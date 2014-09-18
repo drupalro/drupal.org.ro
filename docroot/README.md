@@ -1,1 +1,0 @@
-# Asociatia Drupal Romania
