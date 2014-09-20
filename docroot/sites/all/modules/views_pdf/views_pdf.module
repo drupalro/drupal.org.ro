@@ -1,23 +1,21 @@
 <?php
-
 /**
  * @file
- * PDF Views allows the creation of PDF's directly from a view. Without the 
+ * PDF Views allows the creation of PDF's directly from a view. Without the
  * creation of HTML first.
  */
 
-
 /**
- * Implementation of hook_views_api().
+ * Implements hook_views_api().
  */
 function views_pdf_views_api() {
   return array(
-    'api' => '3.0-alpha1',
+    'api' => 3,
   );
 }
 
 /**
- * Implementation of hook_theme()
+ * Implements hook_theme().
  */
 function views_pdf_theme() {
   return array(
@@ -26,7 +24,8 @@ function views_pdf_theme() {
       'file' => 'views_pdf.admin.inc',
     ),
     'views_pdf_icon' => array(
-      'arguments' => array('url' => NULL, 'title' => NULL),
+      'render element' => 'form',
+      'variables' => array('url' => NULL, 'title' => NULL),
     ),
   );
 }
@@ -34,24 +33,30 @@ function views_pdf_theme() {
 /**
  * This method can be used to load the PDF library class.
  */
-function views_pdf_get_new_pdf_instance($orientation='P', $unit='mm', $format='A4', $unicode=TRUE, $encoding='UTF-8', $diskcache=FALSE) {
+function views_pdf_get_new_pdf_instance($orientation = 'P', $unit = 'mm', $format = 'A4', $unicode = TRUE, $encoding = 'UTF-8', $diskcache = FALSE) {
   _views_pdf_include_pdf_lib();
   return new PdfTemplate($orientation, $unit, $format, $unicode, $encoding, $diskcache);
-
 }
 
 /**
  * Theme function for the PDF icon of appended PDFs.
  */
-function theme_views_pdf_icon($url, $title) {
-  $path = drupal_get_path('module', 'views_pdf') . '/images/pdf.png';
-  if ($image = theme('image', $path, t('PDF content'), $title)) {
-    return '<a href="'. check_url($url) .'" class="pdf-icon">'. $image .'</a>';
-  }  
+function theme_views_pdf_icon($vars) {
+  $title = $vars['title'];
+  $path = $vars['path'];
+  $options = $vars['options'];
+  $options['html'] = TRUE;
+  $options['attributes']['class'] = 'pdf-icon';
+
+  $imagePath = drupal_get_path('module', 'views_pdf') . '/images/pdf.png';
+
+  if ($image = theme('image', array('path' => $imagePath, 'title' => $title, 'alt' => $title))) {
+    return l($image, $path, $options);
+  }
 }
 
 /**
- * This method can be used to get all available fonts. 
+ * This method can be used to get all available fonts.
  */
 function views_pdf_get_font_list() {
   _views_pdf_include_pdf_lib();
@@ -61,9 +66,9 @@ function views_pdf_get_font_list() {
 
 /**
  * This function returns the path to a given library.
- * 
+ *
  * @param $name Name of the Library
- * 
+ *
  */
 function views_pdf_get_library($name) {
     if (function_exists('libraries_get_path')) {
@@ -81,12 +86,12 @@ function views_pdf_get_library($name) {
  */
 function views_pdf_get_pdf_templates() {
   _views_pdf_include_pdf_lib();
-  return PdfTemplate::getAvailableTemplates();  
+  return PdfTemplate::getAvailableTemplates();
 }
 
 /**
  * This method returns all available hyphenation
- * patterns (paths to files). 
+ * patterns (paths to files).
  */
 function views_pdf_get_hyphenations() {
   _views_pdf_include_pdf_lib();
@@ -147,6 +152,8 @@ function views_pdf_get_page_formats() {
   $format['LEGAL'] = 'LEGAL';
   $format['EXECUTIVE'] = 'EXECUTIVE';
   $format['FOLIO'] = 'FOLIO';
+  $format['MEMO'] = 'MEMO';
+
   return $format;
 }
 
@@ -155,16 +162,15 @@ function views_pdf_get_page_formats() {
  * Get the PDF class.
  */
 function _views_pdf_include_pdf_lib() {
-  $path = drupal_get_path('module', 'views_pdf');
-  require_once $path . '/views_pdf_template.php';
+  module_load_include('php', 'views_pdf', 'views_pdf_template');
 }
 
 
 
 /**
- * For backward compatibilty (< 5.3) we implemented 
- * this function by our self. If we are in a newer 
- * environment, then this is obsolete. 
+ * For backward compatibilty (< 5.3) we implemented
+ * this function by our self. If we are in a newer
+ * environment, then this is obsolete.
  *
  */
 if (!function_exists('array_replace_recursive')) {
@@ -172,12 +178,12 @@ if (!function_exists('array_replace_recursive')) {
     if (!function_exists('recurse')) {
       function recurse($array, $array1) {
         foreach ($array1 as $key => $value) {
-          // create new key in $array, if it is empty or not an array
+          // Create new key in $array, if it is empty or not an array.
           if (!isset($array[$key]) || (isset($array[$key]) && !is_array($array[$key]))) {
             $array[$key] = array();
           }
-   
-          // overwrite the value in the base array
+
+          // Overwrite the value in the base array.
           if (is_array($value)) {
             $value = recurse($array[$key], $value);
           }
@@ -185,8 +191,8 @@ if (!function_exists('array_replace_recursive')) {
         }
         return $array;
       }
-   
-      // handle the arguments, merge one by one
+
+      // Handle the arguments, merge one by one.
       $args = func_get_args();
       $array = $args[0];
       if (!is_array($array)) {
