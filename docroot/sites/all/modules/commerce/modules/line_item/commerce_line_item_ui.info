@@ -1,7 +1,6 @@
 name = Line Item UI
 description = Exposes a default UI for Line Items through line item type forms and default Views.
 package = Commerce
-dependencies[] = contextual
 dependencies[] = field_ui
 dependencies[] = commerce
 dependencies[] = commerce_ui
@@ -10,9 +9,9 @@ dependencies[] = views
 core = 7.x
 configure = admin/commerce/config/line-items
 
-; Information added by drupal.org packaging script on 2012-10-22
-version = "7.x-1.4"
+; Information added by Drupal.org packaging script on 2014-09-10
+version = "7.x-1.10"
 core = "7.x"
 project = "commerce"
-datestamp = "1350864676"
+datestamp = "1410366834"
 

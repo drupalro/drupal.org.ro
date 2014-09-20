@@ -158,12 +158,6 @@ function commerce_order_order_form($form, &$form_state, $order) {
     '#attributes' => array('id' => 'edit-changed'),
   );
 
-  $form['actions'] = array(
-    '#type' => 'container',
-    '#attributes' => array('class' => array('form-actions')),
-    '#weight' => 100,
-  );
-
   // We add the form's #submit array to this button along with the actual submit
   // handler to preserve any submit handlers added by a form callback_wrapper.
   $submit = array();
@@ -172,6 +166,7 @@ function commerce_order_order_form($form, &$form_state, $order) {
     $submit += $form['#submit'];
   }
 
+  $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Save order', array(), array('context' => 'a drupal commerce order')),
@@ -269,16 +264,17 @@ function commerce_order_order_form_submit($form, &$form_state) {
   // Ensure the attached customer profiles are associated with the order owner
   // if they do not have a uid yet and the order does.
   if ($converted) {
-    $entity_info = entity_get_info('commerce_customer_profile');
     $wrapper = entity_metadata_wrapper('commerce_order', $order);
 
-    foreach ($entity_info['bundles'] as $profile_type => $data) {
-      $field_name = 'commerce_customer_' . $profile_type;
+    foreach (field_info_instances('commerce_order', $order->type) as $field_name => $instance) {
+      $field_info = field_info_field($field_name);
 
-      if (!is_null($wrapper->{$field_name}->value()) &&
-        $wrapper->{$field_name}->uid->value() == 0) {
-        $wrapper->{$field_name}->uid = $order->uid;
-        $wrapper->{$field_name}->save();
+      if ($field_info['type'] == 'commerce_customer_profile_reference') {
+        if (!is_null($wrapper->{$field_name}->value()) &&
+          $wrapper->{$field_name}->uid->value() == 0) {
+          $wrapper->{$field_name}->uid = $order->uid;
+          $wrapper->{$field_name}->save();
+        }
       }
     }
   }
@@ -298,7 +294,7 @@ function commerce_order_order_form_submit($form, &$form_state) {
   foreach (entity_metadata_wrapper('commerce_order', $order)->commerce_line_items as $delta => $line_item_wrapper) {
     if ($line_item_wrapper->order_id->value() == 0) {
       $line_item_wrapper->order_id = $order->order_id;
-      $line_item_wrapper->save();
+      commerce_line_item_save($line_item_wrapper->value());
     }
   }
 }
