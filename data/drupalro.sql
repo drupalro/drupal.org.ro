@@ -1638,7 +1638,7 @@ CREATE TABLE `date_format_locale` (
 
 LOCK TABLES `date_format_locale` WRITE;
 /*!40000 ALTER TABLE `date_format_locale` DISABLE KEYS */;
-INSERT INTO `date_format_locale` VALUES ('l, F j, Y - H:i','long','en'),('D, m/d/Y - H:i','medium','en'),('m/d/Y - H:i','short','en'),('j F Y - g:ia','long','ro'),('D, d/m/Y - H:i','medium','ro'),('d/m/Y - H:i','short','ro');
+INSERT INTO `date_format_locale` VALUES ('l, F j, Y - H:i','long','en'),('D, m/d/Y - H:i','medium','en'),('m/d/Y - H:i','short','en'),('l, j F, Y - H:i','long','ro'),('D, d/m/Y - H:i','medium','ro'),('d/m/Y - H:i','short','ro');
 /*!40000 ALTER TABLE `date_format_locale` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1664,7 +1664,7 @@ CREATE TABLE `date_format_type` (
 
 LOCK TABLES `date_format_type` WRITE;
 /*!40000 ALTER TABLE `date_format_type` DISABLE KEYS */;
-INSERT INTO `date_format_type` VALUES ('long','Long',1),('medium','Medium',1),('short','Short',1);
+INSERT INTO `date_format_type` VALUES ('long','Lung',1),('medium','Mediu',1),('short','Scurt',1);
 /*!40000 ALTER TABLE `date_format_type` ENABLE KEYS */;
 UNLOCK TABLES;
 
