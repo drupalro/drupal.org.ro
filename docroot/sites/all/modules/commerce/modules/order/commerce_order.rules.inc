@@ -48,7 +48,7 @@ function commerce_order_rules_condition_info() {
       'value' => array(
         'type' => 'text',
         'label' => t('Value'),
-        'description' => t('The value to compare against the address component. Bear in mind that addresses using select lists for various components may use a value different from the option you select. For example, countries are selected by name, but the value is the two letter abbreviation.'),
+        'description' => t('The value to compare against the address component. Bear in mind that addresses using select lists for various components may use a value different from the option you select. For example, countries are selected by name, but the value is the two letter abbreviation. For comparisons with multiple possible values, place separate values on new lines.'),
       ),
     ),
     'group' => t('Commerce Order'),
@@ -88,6 +88,41 @@ function commerce_order_rules_condition_info() {
     'group' => t('Commerce Order'),
     'callbacks' => array(
       'execute' => 'commerce_order_rules_contains_product',
+    ),
+  );
+
+  $conditions['commerce_order_contains_product_type'] = array(
+    'label' => t('Order contains products of particular product types'),
+    'parameter' => array(
+      'commerce_order' => array(
+        'label' => t('Order'),
+        'type' => 'commerce_order',
+        'description' => t('The order whose line items should be checked for the specified product type. If the specified order does not exist, the comparison will act as if it is against a quantity of 0.'),
+      ),
+      'product_type' => array(
+        'label' => t('Product type(s)'),
+        'type' => 'list<text>',
+        'description' => t('The product type(s) to look for in the order.'),
+        'options list' => 'commerce_product_type_options_list',
+      ),
+      'operator' => array(
+        'label' => t('Operator'),
+        'type' => 'text',
+        'description' => t('The operator used with the quantity value below to compare against the quantity of products matching the specified product type(s) on the order.'),
+        'default value' => '>=',
+        'options list' => 'commerce_numeric_comparison_operator_options_list',
+        'restriction' => 'input',
+      ),
+      'value' => array(
+        'label' => t('Quantity'),
+        'type' => 'text',
+        'default value' => '1',
+        'description' => t('The value to compare against the quantity of products of the specified product type(s) on the order.'),
+      ),
+    ),
+    'group' => t('Commerce Order'),
+    'callbacks' => array(
+      'execute' => 'commerce_order_rules_contains_product_type',
     ),
   );
 
@@ -142,8 +177,9 @@ function commerce_order_address_field_options_list() {
       if (in_array($type, $address_field['bundles']['commerce_customer_profile'])) {
         // Add it to the options list.
         $instance = field_info_instance('commerce_customer_profile', 'commerce_customer_address', $type);
+        $translated_instance = commerce_i18n_object('field_instance', $instance);
 
-        $options[commerce_customer_profile_type_get_name($type)][$field_name . '|' . $address_field_name] = check_plain($instance['label']);
+        $options[commerce_customer_profile_type_get_name($type)][$field_name . '|' . $address_field_name] = check_plain($translated_instance['label']);
       }
     }
   }
@@ -184,6 +220,8 @@ function commerce_order_address_comparison_operator_options_list() {
     'equals' => t('equals'),
     'begins with' => t('begins with'),
     'contains' => t('contains'),
+    'is one of' => t('is one of'),
+    'begins with one of' => t('begins with one of'),
   );
 }
 
@@ -201,14 +239,29 @@ function commerce_order_rules_compare_address($order, $address_field, $component
     if (!empty($wrapper->{$field_name}) && !empty($wrapper->{$field_name}->{$address_field_name})) {
       $address = $wrapper->{$field_name}->{$address_field_name}->value();
 
+      // Perform the comparison in upper case.
+      $address_component = drupal_strtoupper($address[$component]);
+      $value = drupal_strtoupper($value);
+
       // Make a comparison based on the operator.
       switch ($operator) {
         case 'equals':
-          return $address[$component] == $value;
+          return $address_component == $value;
         case 'begins with':
-          return strpos($address[$component], $value) === 0;
+          return strpos($address_component, $value) === 0;
         case 'contains':
-          return strpos($address[$component], $value) !== FALSE;
+          return strpos($address_component, $value) !== FALSE;
+        case 'is one of':
+          $list = preg_split('/[\n\r]+/', $value);
+          return array_search($address_component, $list) !== FALSE;
+        case 'begins with one of':
+          $list = preg_split('/[\n\r]+/', $value);
+          foreach ($list as $item) {
+            if (strpos($address_component, $item) === 0) {
+              return TRUE;
+            }
+          }
+          break;
       }
     }
   }
@@ -257,6 +310,49 @@ function commerce_order_rules_contains_product($order, $sku, $operator, $value) 
       return $products[$sku] >= $value;
     case '>':
       return $products[$sku] > $value;
+  }
+
+  return FALSE;
+}
+
+/**
+ * Condition callback: checks to see if one or more particular product types exist on an order
+ * in the specified quantity.
+ */
+function commerce_order_rules_contains_product_type($order, $product_types, $operator, $value) {
+  $quantity = 0;
+
+  // If we actually received a valid order...
+  if (!empty($order)) {
+    $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+
+    // Look for product line items on the order whose products match the
+    // specified product types and increment the quantity count accordingly.
+    foreach ($order_wrapper->commerce_line_items as $line_item_wrapper) {
+      if (in_array($line_item_wrapper->type->value(), commerce_product_line_item_types())) {
+        // Extract the product type from the line item.
+        $line_item_product_type = $line_item_wrapper->commerce_product->type->value();
+
+        // If the line item product type matches, update the total quantity.
+        if (in_array($line_item_product_type, $product_types)) {
+          $quantity += $line_item_wrapper->quantity->value();
+        }
+      }
+    }
+  }
+
+  // Make a quantity comparison based on the operator.
+  switch ($operator) {
+    case '<':
+      return $quantity < $value;
+    case '<=':
+      return $quantity <= $value;
+    case '=':
+      return $quantity == $value;
+    case '>=':
+      return $quantity >= $value;
+    case '>':
+      return $quantity > $value;
   }
 
   return FALSE;

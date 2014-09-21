@@ -111,6 +111,9 @@ function commerce_product_entity_info() {
         'plural' => t('products'),
       ),
 
+      // Prevent Redirect alteration of the product form.
+      'redirect' => FALSE,
+
       // Add translation support.
       'translation' => array(
         'locale' => TRUE,
@@ -597,7 +600,7 @@ function commerce_product_access($op, $product = NULL, $account = NULL) {
 }
 
 /**
- * Implementation of hook_query_commerce_product_access_alter().
+ * Implements hook_query_TAG_alter().
  */
 function commerce_product_query_commerce_product_access_alter(QueryAlterableInterface $query) {
   return commerce_entity_access_query_alter($query, 'commerce_product');
@@ -725,6 +728,23 @@ function commerce_product_autocomplete($entity_type, $field_name, $bundle, $stri
 
   $matches = array();
 
+  // Extract the SKU string from the URL while preserving support for SKUs that
+  // contain slashes. Whereas we previously relied on the $string parameter, its
+  // value was being truncated when any SKUs in the autocomplete widget had a /.
+  // @see http://drupal.org/node/1962144
+  $args = explode('/', request_path());
+
+  if (count($args) <= 5) {
+    drupal_json_output($matches);
+    return;
+  }
+
+  // Trim off leading arguments from other modules such as Locale.
+  $offset = array_search('commerce_product', $args);
+
+  array_splice($args, 0, 5 + $offset);
+  $string = implode('/', $args);
+
   // The user enters a comma-separated list of tags. We only autocomplete the last tag.
   $tags_typed = drupal_explode_tags($string);
   $tag_last = drupal_strtolower(array_pop($tags_typed));
@@ -740,8 +760,7 @@ function commerce_product_autocomplete($entity_type, $field_name, $bundle, $stri
 
     // Loop through the products and convert them into autocomplete output.
     foreach ($products as $product_id => $data) {
-      // Add a class wrapper for a few required CSS overrides.
-      $matches[$prefix . $data['sku']] = '<div class="reference-autocomplete">' . $data['rendered'] . '</div>';
+      $matches[$prefix . $data['sku']] = $data['rendered'];
     }
   }
 
@@ -813,18 +832,17 @@ function commerce_product_match_products($field, $instance = NULL, $string = '',
  * Returns an array of products matching the specific parameters.
  */
 function _commerce_product_match_products_standard($instance, $string = '', $match = 'contains', $ids = array(), $limit = NULL, $access_tag = FALSE) {
-  // Build the query object with the necessary fields.
-  $query = db_select('commerce_product', 'cp');
+  $query = new EntityFieldQuery;
+
+  $query->entityCondition('entity_type', 'commerce_product');
 
   // Add the access control tag if specified.
   if ($access_tag) {
     $query->addTag('commerce_product_access');
   }
 
-  $product_id_alias = $query->addField('cp', 'product_id');
-  $product_sku_alias = $query->addField('cp', 'sku');
-  $product_title_alias = $query->addField('cp', 'title');
-  $product_type_alias = $query->addField('cp', 'type');
+  // Add a global query tag so anyone can alter this query.
+  $query->addTag('commerce_product_match');
 
   // Add a condition to the query to filter by matching product types.
   if (!empty($instance['settings']['referenceable_types'])) {
@@ -832,68 +850,96 @@ function _commerce_product_match_products_standard($instance, $string = '', $mat
 
     // Only filter by type if some types have been specified.
     if (!empty($types)) {
-      $query->condition('cp.type', $types, 'IN');
+      $query->propertyCondition('type', $types, 'IN');
     }
   }
 
   if ($string !== '') {
-    $args = array();
+    // EntityFieldQuery cannot do OR clauses, so we use hook_query_TAG_alter.
+    $query->addTag('commerce_sku_or_title_match');
 
-    // Build a where clause matching on either the SKU or title.
-    switch ($match) {
-      case 'contains':
-        $where = '(cp.sku LIKE :sku_match OR cp.title LIKE :title_match)';
-        $args['sku_match'] = '%' . $string . '%';
-        $args['title_match'] = '%' . $string . '%';
-        break;
+    $sku_title_meta = new stdClass();
+    $sku_title_meta->properties = array(
+      'sku',
+      'title',
+    );
+    $sku_title_meta->string = $string;
+    $sku_title_meta->match = $match;
 
-      case 'starts_with':
-        $where = '(cp.sku LIKE :sku_match OR cp.title LIKE :title_match)';
-        $args['sku_match'] = $string . '%';
-        $args['title_match'] = $string . '%';
-        break;
-
-      case 'equals':
-      default:
-        $where = '(cp.sku = :sku_match OR cp.title = :title_match)';
-        $args['sku_match'] = $string;
-        $args['title_match'] = $string;
-        break;
-    }
-
-    $query->where($where, $args);
+    $query->addMetaData('commerce_sku_or_title_match', $sku_title_meta);
   }
   elseif ($ids) {
     // Otherwise add a product_id specific condition if specified.
-    $query->condition($product_id_alias, $ids, 'IN', $ids);
+    $query->propertyCondition('product_id', $ids, 'IN');
   }
 
   // Order the results by SKU, title, and then product type.
   $query
-    ->orderBy($product_sku_alias)
-    ->orderBy($product_title_alias)
-    ->orderBy($product_type_alias);
+    ->propertyOrderBy('sku')
+    ->propertyOrderBy('title')
+    ->propertyOrderBy('type');
 
   // Add a limit if specified.
   if ($limit) {
     $query->range(0, $limit);
   }
 
-  // Execute the query and build the results array.
-  $result = $query->execute();
+  $entities = $query->execute();
 
   $matches = array();
 
-  foreach ($result->fetchAll() as $product) {
-    $matches[$product->product_id] = array(
-      'sku' => $product->sku,
-      'type' => $product->type,
-      'title' => $product->title,
-      'rendered' => t('@sku: @title', array('@sku' => $product->sku, '@title' => $product->title)),
-    );
+  if (isset($entities['commerce_product'])) {
+    $pids = array_keys($entities['commerce_product']);
+
+    // EntityFieldQuery doesn't return sku and title, so we have to load again.
+    $products = commerce_product_load_multiple($pids);
+    foreach ($products AS $product) {
+      $matches[$product->product_id] = array(
+        'sku' => $product->sku,
+        'type' => $product->type,
+        'title' => $product->title,
+        'rendered' => t('@sku: @title', array('@sku' => $product->sku, '@title' => $product->title)),
+      );
+    }
   }
 
   return $matches;
+}
+
+/**
+ * Implements hook_query_TAG_alter.
+ *
+ * EntityFieldQuery used in _commerce_product_match_products_standard() does not
+ * allow OR clauses. Alter the SQL query to string match on sku OR title.
+ *
+ * @param QueryAlterableInterface $query
+ */
+function commerce_product_query_commerce_sku_or_title_match_alter(QueryAlterableInterface $query) {
+  $string = $query->alterMetaData['commerce_sku_or_title_match']->string;
+  $match = $query->alterMetaData['commerce_sku_or_title_match']->match;
+
+  if (isset($string, $match)) {
+    // Build a where clause matching on either the SKU or title.
+    switch ($match) {
+      case 'contains':
+        $or = db_or()->condition('sku', '%' . $string . '%', 'LIKE')
+          ->condition('title', '%' . $string . '%', 'LIKE');
+        break;
+
+      case 'starts_with':
+        $or = db_or()->condition('sku', $string . '%', 'LIKE')
+          ->condition('title', $string . '%', 'LIKE');
+        break;
+
+      case 'equals':
+      default:
+        $or = db_or()->condition('sku', $string, '=')
+          ->condition('title', $string, '=');
+        break;
+    }
+
+    $query->condition($or);
+  }
 }
 
 /**
@@ -928,6 +974,16 @@ function template_preprocess_commerce_product_sku(&$variables) {
  */
 function template_preprocess_commerce_product_title(&$variables) {
   $variables['title'] = check_plain($variables['title']);
+}
+
+/**
+ * Returns the options list for the product status property.
+ */
+function commerce_product_status_options_list() {
+  return array(
+    0 => t('Disabled'),
+    1 => t('Active'),
+  );
 }
 
 /**

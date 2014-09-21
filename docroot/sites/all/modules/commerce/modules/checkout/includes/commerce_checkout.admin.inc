@@ -73,9 +73,8 @@ function commerce_checkout_builder_form($form, &$form_state) {
   }
 
   $form['actions'] = array(
-    '#type' => 'container',
+    '#type' => 'actions',
     '#tree' => FALSE,
-    '#attributes' => array('class' => array('form-actions')),
   );
   $form['actions']['submit'] = array(
     '#type' => 'submit',
@@ -110,7 +109,14 @@ function commerce_checkout_builder_form_validate(&$form, &$form_state) {
     // Check if pane should be locked but is configured on the wrong checkout page.
     if (!empty($panes[$pane_id]['locked']) && $checkout_pane['page'] != $panes[$pane_id]['page']) {
       $element = &$form['page'][$saved_panes[$pane_id]['page']]['panes'][$pane_id]['page'];
-      drupal_set_message(t('%pane is locked in the code to the %page page and was repositioned accordingly.', array('%pane' => $panes[$pane_id]['title'], '%page' => $pages[$panes[$pane_id]['page']]['title'])), 'warning');
+
+      if ($panes[$pane_id]['page'] == 'disabled') {
+        drupal_set_message(t('%pane must be configured before it can be enabled. It has been moved back to a disabled position.', array('%pane' => $panes[$pane_id]['title'])), 'warning');
+      }
+      else {
+        drupal_set_message(t('%pane is locked in the code to the %page page and was repositioned accordingly.', array('%pane' => $panes[$pane_id]['title'], '%page' => $pages[$panes[$pane_id]['page']]['title'])), 'warning');
+      }
+
       form_set_value($element, $panes[$pane_id]['page'], $form_state);
     }
   }
@@ -320,16 +326,18 @@ function commerce_checkout_pane_settings_form_save_submit($form, &$form_state) {
   // Save this checkout pane's settings as if this was a system settings form.
   if (!empty($form['settings'])) {
     foreach (element_children($form['settings']) as $field) {
-      // Provide support for containers one level deep.
-      if (in_array($form['settings'][$field]['#type'], array('container', 'fieldset'))) {
-        foreach (element_children($form['settings'][$field]) as $nested_field) {
-          if (isset($form_state['values'][$nested_field])) {
-            variable_set($nested_field, $form_state['values'][$nested_field]);
+      if (!empty($form['settings'][$field]['#type'])) {
+        // Provide support for containers one level deep.
+        if (in_array($form['settings'][$field]['#type'], array('container', 'fieldset'))) {
+          foreach (element_children($form['settings'][$field]) as $nested_field) {
+            if (isset($form_state['values'][$nested_field])) {
+              variable_set($nested_field, $form_state['values'][$nested_field]);
+            }
           }
         }
-      }
-      elseif (isset($form_state['values'][$field])) {
-        variable_set($field, $form_state['values'][$field]);
+        elseif (isset($form_state['values'][$field])) {
+          variable_set($field, $form_state['values'][$field]);
+        }
       }
     }
   }
@@ -384,5 +392,59 @@ function commerce_checkout_complete_rules() {
   $content['disabled']['rules'] = RulesPluginUI::overviewTable($conditions, $options);
   $content['disabled']['rules']['#empty'] = t('There are no disabled checkout rules.');
 
+  // Store the function name in the content array to make it easy to alter the
+  // contents of this page.
+  $content['#page_callback'] = 'commerce_checkout_complete_rules';
+
   return $content;
+}
+
+/**
+ * Form callback: confirmation form for manually invoking the checkout
+ * completion event for an order.
+ *
+ * @param $order
+ *   The order object to process checkout completion on.
+ *
+ * @return
+ *   The form array to confirm the process.
+ *
+ * @see confirm_form()
+ */
+function commerce_checkout_complete_form($form, &$form_state, $order) {
+  $form['order_id'] = array(
+    '#type' => 'value',
+    '#value' => $order->order_id,
+  );
+
+  // Build a description of what the user may expect to occur on submission.
+  $items = array(
+    t('The normal checkout completion process will be invoked on this order.'),
+    t('This may involve order status updates and e-mail notifications.'),
+  );
+
+  $form = confirm_form($form,
+    t('Are you sure you want to simulate checkout completion for order @number?', array('@number' => $order->order_number)),
+    'admin/commerce/orders/' . $order->order_id . '/edit',
+    '<p>' . theme('item_list', array('items' => $items)) . '</p>',
+    t('Simulate checkout completion'),
+    t('Cancel')
+  );
+
+  return $form;
+}
+
+/**
+ * Form submit callback for commerce_checkout_complete_form().
+ */
+function commerce_checkout_complete_form_submit($form, &$form_state) {
+  if ($order = commerce_order_load($form_state['values']['order_id'])) {
+    commerce_checkout_complete($order);
+    drupal_set_message(t('Checkout completion rules have been executed for the order.'));
+    $form_state['redirect'] = 'admin/commerce/orders/' . $order->order_id . '/edit';
+  }
+  else {
+    drupal_set_message(t('Order not found.'), 'error');
+    $form_state['redirect'] = 'admin/commerce/orders';
+  }
 }

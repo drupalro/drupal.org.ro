@@ -1,0 +1,30 @@
+<?php
+
+
+abstract class DraLiveTest extends DrupalWebTestCase {
+
+  public function setUp() {
+    $this->originalPrefix = $GLOBALS['db_prefix'];
+  }
+
+  function tearDown() { }
+}
+
+
+class DraUpdate730Test extends DraLiveTest {
+
+  public static function getInfo() {
+    return array(
+      'name' => 'DraUpdate730',
+      'description' => 'Tests core update to 7.30 and module update to latest',
+      'group' => 'DRA',
+    );
+  }
+
+  function testFrontPage() {
+    $this->drupalGet('');
+    $this->assertNoText(t('Welcome to your new Drupal website!'));
+    $this->assertText('Drupalcamp 2012 will take place in Arad');
+  }
+
+}

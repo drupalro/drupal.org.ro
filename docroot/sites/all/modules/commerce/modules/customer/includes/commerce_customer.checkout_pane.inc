@@ -22,7 +22,7 @@ function commerce_customer_profile_pane_settings_form($checkout_pane) {
   foreach (commerce_info_fields('commerce_customer_profile_reference', 'commerce_order') as $name => $field) {
     if ($type == $field['settings']['profile_type']) {
       $instance = field_info_instance('commerce_order', $name, 'commerce_order');
-      $options[$name] = check_plain($instance['label']);
+      $options[$name] = $instance['label'];
     }
   }
 
@@ -89,6 +89,12 @@ function commerce_customer_profile_pane_checkout_form($form, &$form_state, $chec
 
   // If the associated order field has been set...
   if ($field_name = variable_get('commerce_' . $checkout_pane['pane_id'] . '_field', '')) {
+    // Check to ensure the specified profile reference field exists on the
+    // current order type.
+    if (!field_info_instance('commerce_order', $field_name, $order->type)) {
+      return array();
+    }
+
     $profile = $wrapper->{$field_name}->value();
   }
   else {
@@ -132,7 +138,7 @@ function commerce_customer_profile_pane_checkout_form($form, &$form_state, $chec
 
       $pane_form['commerce_customer_profile_copy'] = array(
         '#type' => 'checkbox',
-        '#title' => t('My @target is the same as my @source.', array('@target' => drupal_strtolower($target_profile_type['name']), '@source' => drupal_strtolower($source_profile_type['name']))),
+        '#title' => t('My %target is the same as my %source.', array('%target' => $target_profile_type['name'], '%source' => $source_profile_type['name'])),
         '#element_validate' => array('commerce_customer_profile_copy_validate'),
         '#default_value' => isset($order->data['profile_copy'][$checkout_pane['pane_id']]['status']) ? $order->data['profile_copy'][$checkout_pane['pane_id']]['status'] : $profile_copy_default,
         '#weight' => -30,
@@ -152,8 +158,18 @@ function commerce_customer_profile_pane_checkout_form($form, &$form_state, $chec
       if (!empty($order->data['profile_copy'][$checkout_pane['pane_id']]['status']) && isset($order->data['profile_copy'][$checkout_pane['pane_id']]['elements'])) {
         foreach ($order->data['profile_copy'][$checkout_pane['pane_id']]['elements'] as $field_name => $field) {
           foreach ($field as $langcode => $items) {
-            foreach ($items as $delta => $item) {
-              $pane_form[$field_name][$langcode][$delta]['#access'] = FALSE;
+            if (is_array($items)) {
+              foreach ($items as $delta => $item) {
+                if (!empty($pane_form[$field_name][$langcode][$delta])) {
+                  $pane_form[$field_name][$langcode][$delta]['#access'] = FALSE;
+                }
+                elseif (!empty($pane_form[$field_name][$langcode])) {
+                  $pane_form[$field_name][$langcode]['#access'] = FALSE;
+                }
+              }
+            }
+            else {
+              $pane_form[$field_name][$langcode]['#access'] = FALSE;
             }
           }
         }
@@ -162,9 +178,9 @@ function commerce_customer_profile_pane_checkout_form($form, &$form_state, $chec
       elseif (empty($order->data['profile_copy']) && $profile_copy_default) {
         // Get field names that will be copied from the source profile.
         foreach (field_info_instances('commerce_customer_profile', $source_profile_type['type']) as $field_name => $field) {
-          $langcode = $pane_form[$field_name]['#language'];
           // If the field exists on the destination profile then disable it.
-          if(!empty($pane_form[$field_name])){
+          if (!empty($pane_form[$field_name])){
+            $langcode = $pane_form[$field_name]['#language'];
             $pane_form[$field_name][$langcode]['#access'] = FALSE;
           }
         }
@@ -223,10 +239,30 @@ function commerce_customer_profile_copy_refresh($form, &$form_state) {
  * Checkout pane callback: validates a customer profile edit form.
  */
 function commerce_customer_profile_pane_checkout_form_validate($form, &$form_state, $checkout_pane, $order) {
-  $profile = $form_state['values'][$checkout_pane['pane_id']]['customer_profile'];
+  $pane_id = $checkout_pane['pane_id'];
+
+  // Check to ensure the specified profile reference field exists on the
+  // current order type.
+  $field_name = variable_get('commerce_' . $pane_id . '_field', '');
+
+  if (!empty($field_name) && !field_info_instance('commerce_order', $field_name, $order->type)) {
+    return TRUE;
+  }
+
+  $profile = $form_state['values'][$pane_id]['customer_profile'];
 
   // Notify field widgets to validate their data.
   field_attach_form_validate('commerce_customer_profile', $profile, $form[$checkout_pane['pane_id']], $form_state);
+
+  // If there were any errors in the field attach validate process for fields on
+  // this checkout pane's customer profile, fail the checkout pane validation.
+  if ($errors = form_get_errors()) {
+    foreach ($errors as $field => $error) {
+      if (substr($field, 0, strlen($pane_id) + 2) == $pane_id . '][') {
+        return FALSE;
+      }
+    }
+  }
 
   return TRUE;
 }
@@ -235,9 +271,18 @@ function commerce_customer_profile_pane_checkout_form_validate($form, &$form_sta
  * Checkout pane callback: submits a customer profile edit form.
  */
 function commerce_customer_profile_pane_checkout_form_submit($form, &$form_state, $checkout_pane, $order) {
-  $profile = $form_state['values'][$checkout_pane['pane_id']]['customer_profile'];
+  $pane_id = $checkout_pane['pane_id'];
+
+  // Check to ensure the specified profile reference field exists on the
+  // current order type.
+  $field_name = variable_get('commerce_' . $pane_id . '_field', '');
+
+  if (!empty($field_name) && !field_info_instance('commerce_order', $field_name, $order->type)) {
+    return;
+  }
 
   // Ensure the profile is active.
+  $profile = $form_state['values'][$pane_id]['customer_profile'];
   $profile->status = TRUE;
 
   // Set the profile's uid if it's being created at this time.

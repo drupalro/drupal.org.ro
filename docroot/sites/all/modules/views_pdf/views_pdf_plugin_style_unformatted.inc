@@ -12,24 +12,60 @@
  */
 class views_pdf_plugin_style_unformatted extends views_plugin_style {
   /**
-   * Rendering function
+   * Render the grouping sets.
+   *
+   * Plugins may override this method if they wish some other way of handling
+   * grouping.
+   *
+   * @param $sets
+   *   Array containing the grouping sets to render.
+   * @param $level
+   *   Integer indicating the hierarchical level of the grouping.
+   *
+   * @return string
+   *   Rendered output of given grouping sets.
    */
-  function render() {
-    if ($this->uses_row_plugin() && empty($this->row_plugin)) {
-      vpr('views_plugin_style_default: Missing row plugin');
-      return;
-    }
+  function render_grouping_sets($sets, $level = 0) {
 
     $output = '';
 
-    $this->view->numberOfRecords = count($this->view->result);
-    if ($this->uses_row_plugin()) {
-      $this->row_plugin->render($this->view->result);
+    $next_level = $level + 1;
+    foreach ($sets as $set) {
+      $row = reset($set['rows']);
+      // Render as a grouping set.
+      if (is_array($row) && isset($row['group'])) {
+        $field_id = $this->options['grouping'][$level]['field'];
+        $options = array();
+        if(isset($this->row_plugin->options['formats'][$field_id])) {
+          $options = $this->row_plugin->options['formats'][$field_id];
+        }
+        $this->view->pdf->drawContent($set['group'], $options, $this->view);
+        $this->render_grouping_sets($set['rows'], $next_level);
+      }
+      // Render as a record set.
+      else {
+        if (!empty($set['group'])) {
+          $field_id = $this->options['grouping'][$level]['field'];
+          $options = array();
+          if(isset($this->row_plugin->options['formats'][$field_id])) {
+            $options = $this->row_plugin->options['formats'][$field_id];
+          }
+          $this->view->pdf->drawContent($set['group'], $options, $this->view);
+        }
+
+        if ($this->uses_row_plugin()) {
+          foreach ($set['rows'] as $index => $row) {
+            $this->view->row_index = $index;
+            $set['rows'][$index] = $this->row_plugin->render($row);
+          }
+        }
+      }
     }
 
+    unset($this->view->row_index);
     return $output;
   }
-  
+
   /**
    * Attach this view to another display as a feed.
    *
@@ -44,12 +80,17 @@ class views_pdf_plugin_style_unformatted extends views_plugin_style {
       $url_options['query'] = $input;
     }
 
-    $url = url($this->view->get_url(NULL, $path), $url_options);
-
     if (empty($this->view->feed_icon)) {
       $this->view->feed_icon = '';
     }
-    $this->view->feed_icon .= theme('views_pdf_icon', $url, $title);
+    $this->view->feed_icon .= theme(
+      'views_pdf_icon',
+      array(
+        'path' => $this->view->get_url(NULL, $path),
+        'title' => $title,
+        'options' => $url_options
+      )
+    );
   }
 
 }

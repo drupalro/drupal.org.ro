@@ -161,6 +161,7 @@ function commerce_sp_default_rules_configuration() {
   $items['rules_commerce_sp_subscription_bought'] = entity_import('rules_config', '{ "rules_commerce_sp_subscription_bought" : {
       "LABEL" : "Apply bought subscription time",
       "PLUGIN" : "reaction rule",
+      "WEIGHT" : "3",
       "TAGS" : [ "commerce_sp" ],
       "REQUIRES" : [ "rules", "commerce_checkout" ],
       "ON" : [ "commerce_checkout_complete" ],

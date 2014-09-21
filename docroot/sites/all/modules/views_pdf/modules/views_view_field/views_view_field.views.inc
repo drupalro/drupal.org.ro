@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @file
  * Views hook implementations
@@ -24,9 +23,6 @@ function views_view_field_views_data() {
       'click sortable' => FALSE,
       'notafield' => TRUE,
     ),
-  ); 
+  );
   return $data;
 }
-
-
-
