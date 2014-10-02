@@ -1,5 +1,7 @@
 #Asociația Drupal România#
 
+Specifications: [Brief Specs for drupal.org.ro](https://github.com/drupalro/drupal.org.ro/wiki/Brief-Specs-for-drupal.org.ro)
+
 Set-up instructions:
 
 * Create the MySQL database and import data/drupalro.sql
