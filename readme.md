@@ -1,4 +1,5 @@
 #Asociația Drupal România#
+[![Gitter](https://badges.gitter.im/Join Chat.svg)](https://gitter.im/drupalro/drupal.org.ro?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 Specifications: [Brief Specs for drupal.org.ro](https://github.com/drupalro/drupal.org.ro/wiki/Brief-Specs-for-drupal.org.ro)
 
