@@ -14,7 +14,14 @@
  * Get the depending classes.
  */
 require_once views_pdf_get_library('tcpdf') . '/tcpdf.php';
-require_once views_pdf_get_library('fpdi') . '/fpdi2tcpdf_bridge.php';
+
+if (file_exists(views_pdf_get_library('fpdi') . '/fpdi_bridge.php')) {
+  require_once views_pdf_get_library('fpdi') . '/fpdi_bridge.php';
+}
+else {
+  require_once views_pdf_get_library('fpdi') . '/fpdi2tcpdf_bridge.php';
+}
+
 require_once views_pdf_get_library('fpdi') . '/fpdi.php';
 
 
@@ -194,8 +201,11 @@ class PdfTemplate extends FPDI {
   /**
    * Parse color input into an array.
    *
-   * @param string $color Color entered by the user
-   * @return array color as an array
+   * @param string $color
+   *   Color entered by the user
+   *
+   * @return array
+   *   Color as an array
    */
   public function parseColor($color) {
     $color = trim($color, ', ');
@@ -400,7 +410,7 @@ class PdfTemplate extends FPDI {
     $pageDim = $this->getPageDimensions();
 
     // Render the content if it is not already:
-    if (is_object($view) && $key != NULL && isset($view->field[$key]) && is_object($view->field[$key])) {
+    if (is_object($view) && $key != NULL && isset($view->field[$key]) && is_object($view->field[$key]) && !is_string($row)) {
       $content = $view->field[$key]->theme($row);
     }
     elseif (is_string($row)) {
@@ -523,7 +533,12 @@ class PdfTemplate extends FPDI {
     }
 
     // Write the content of a field to the pdf file:
-    $this->MultiCell($w, $h, $prefix . $content, $border, $align, $fill, $ln, $x, $y, $reseth, $stretch, $ishtml, $autopadding, $maxh, $valign, $fitcell);
+    if (!empty($content)) {
+      $this->MultiCell($w, $h, $prefix . $content, $border, $align, $fill, $ln, $x, $y, $reseth, $stretch, $ishtml, $autopadding, $maxh, $valign, $fitcell);
+    }
+    else {
+      $this->MultiCell($w, $h, $prefix, $border, $align, $fill, $ln, $x, $y, $reseth, $stretch, $ishtml, $autopadding, $maxh, $valign, $fitcell);
+    }
 
     // Reset font to default.
     $this->SetFont($this->defaultFontFamily, implode('', $this->defaultFontStyle), $this->defaultFontSize);
@@ -692,7 +707,7 @@ class PdfTemplate extends FPDI {
       $this->SetX($x);
       $this->setPage($page);
 
-      $this->renderRow($x, $y, $column->options['label'], $headerOptions);
+      $this->renderRow($x, $y, $column->options['label'], $headerOptions, $view, $id, FALSE);
       $x += $headerOptions['position']['width'];
     }
 
