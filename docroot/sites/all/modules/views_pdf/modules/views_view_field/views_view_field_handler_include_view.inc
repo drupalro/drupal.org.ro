@@ -145,6 +145,7 @@ class views_view_field_handler_include_view extends views_handler_field {
     $view = views_get_view($view_name);
 
     // look for a display named pdf_X.
+    $pdf_display = NULL;
     foreach($view->display as $display) {
       if (preg_match('/^pdf_/', $display->id)) {
         // found a PDF display so break out of loop.

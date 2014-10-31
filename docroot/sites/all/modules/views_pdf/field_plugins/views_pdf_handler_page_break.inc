@@ -14,8 +14,6 @@
  */
 class views_pdf_handler_page_break extends views_handler_field {
 
-  protected $countRecords = 0;
-
   /**
    * This method  is used to query data. In our case
    * we want that no data is queried.
@@ -63,29 +61,24 @@ class views_pdf_handler_page_break extends views_handler_field {
   }
 
   /**
-   * This method renders the page break. It uses the PDF class to
-   * add a page break.
+   * This method renders the page break.
+   *
+   * Various settings from options form are taken into an account before
+   * deciding whether to add pagebreak or not.
    */
   function render($values) {
-    if (isset($this->view->pdf) && is_object($this->view->pdf)) {
-      if ($this->options['last_row'] == TRUE && ($this->countRecords + 1 >= $this->view->total_rows)) {
-        return '';
-      }
+    // Row index starts from 0 so substract 1 one from result count.
+    $last_row = $this->view->row_index == count($this->view->result) - 1;
+    // Calculate if 'every_nth' rule matches for this row.
+    $add_pagebreak = ($this->view->row_index + 1) % $this->options['every_nth'] == 0;
 
-      $this->countRecords++;
-      if ($this->countRecords == $this->view->total_rows + 1) {
-        $this->countRecords = 1;
-      }
-
-      $output = '';
-      if ($this->countRecords % $this->options['every_nth'] == 0) {
-        $output .= '<br pagebreak="true" />';
-      }
-      else {
-        $output .= '';
-      }
-      return $output;
+    // Last row setting takes priority over 'every_nth' rule if we're infact
+    // rendering last row.
+    if (($this->options['last_row'] == FALSE || !$last_row) && $add_pagebreak) {
+      return '<br pagebreak="true" />';
     }
+
+    return '';
   }
 
   /**
