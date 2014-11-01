@@ -1,6 +1,6 @@
-name = Drupal Romania
+name = Open Framework Subtheme
 base theme = open_framework
-description = Drupal Romania theme, a subtheme of the <a href="http://openframework.stanford.edu">Open Framework theme</a>.
+description = Tableless, multi-column subtheme provided by <a href="http://webservices.stanford.edu">Stanford Web Services</a> as a subtheme of the <a href="http://openframework.stanford.edu">Open Framework theme</a>.
 core = 7.x
 version = 1.0
 
