@@ -7,6 +7,11 @@ drush/aliases/aliases.drushrc.php
 conf/config.json
 conf/apache.conf
 
+# Acquia dev desktop conf #
+##########################
+docroot/sites/*.local
+
+
 # User Generated Content #
 ##########################
 docroot/files
